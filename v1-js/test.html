@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three-Demo</title>
+
+    <style type="text/css">
+      body {
+        margin: 0;
+      }
+
+      #canvas-frame {
+        border: none;
+        /* background-color: #eeeeee; */
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="canvas-frame"></div>
+
+    <script src="lib/three.js"></script>
+    <!-- 控制器 -->
+    <script src="lib/OrbitControls.js"></script>
+    <!-- fps -->
+    <script src="lib/stats.min.js"></script>
+    <!-- 加载模型 -->
+    <script src="lib/DRACOLoader.js"></script>
+    <script src="lib/GLTFLoader.js"></script>
+
+    <!-- 引入自己封装好的函数 -->
+    <script src="js/util_fn.js"></script>
+    <script src="js/init_fn.js"></script>
+    <script src="js/create_fn.js"></script>
+
+    <script>
+      // 初始化
+      const { scene, camera, renderer } = initThree("#canvas-frame");
+      const lights = initLight();
+      const controls = initControls();
+      const stats = initStats();
+
+      // 构建场景
+      // 合并图片需要等图片加载，这里有回调地狱，所以用 async 解决
+      (async function () {
+        // 为了使每一组的命名不冲突，将每组的代码用块级作用域隔开
+        // scene场景的第一组内容
+        let group1, group1Animate;
+        {
+          const earth1 = createEarth({ position: { x: -15, y: -1 } });
+          const earth2 = createEarth({ position: { x: 15, y: -1 } });
+          const machine1 = createMachine("./img/move.png", {
+            rotation: { x: Math.PI / 2 },
+            position: { x: 15, y: -1, z: 15 },
+          });
+          const machine2 = createMachine("./img/move.png", {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -15, y: -1, z: 15 },
+          });
+          const machine3 = createMachine("./img/move.png", {
+            position: { x: 15, z: -20, y: -5 },
+          });
+          const machine4 = createMachine("./img/move.png", {
+            position: { x: -15, z: -20, y: -5 },
+          });
+          const face = createFace(50, 60, 4, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -25, y: -6.1, z: -30 },
+          });
+          const { texture: tubeTexture1, mesh: tube1 } = await createTube(
+            [-15, -5, 0],
+            [15, -5, 0]
+          );
+          const { texture: tubeTexture2, mesh: tube2 } = await createTube(
+            [-15, -5, 15],
+            [15, -5, 15]
+          );
+          const { texture: tubeTexture3, mesh: tube3 } = await createTube(
+            [-15, -5, -20],
+            [15, -5, -20]
+          );
+          const { texture: tubeTexture4, mesh: tube4 } = await createTube(
+            [-15, -5, 15],
+            [-15, -5, -40],
+            [40, -5, -40],
+            [40, -5, -10],
+            [60, -5, -10]
+          );
+          const { texture: tubeTexture5, mesh: tube5 } = await createTube(
+            [15, -5, 15],
+            [15, -5, -35],
+            [30, -5, -35],
+            [30, -5, 10],
+            [60, -5, 10]
+          );
+          group1 = createGroup(
+            machine1,
+            machine2,
+            earth1,
+            earth2,
+            machine3,
+            machine4,
+            face,
+            tube1,
+            tube2,
+            tube3,
+            tube4,
+            tube5
+          );
+          group1.position.x = -60;
+
+          // 每一组的运动函数
+          group1Animate = function () {
+            tubeTexture1.offset.x -= 0.022;
+            tubeTexture2.offset.x -= 0.02;
+            tubeTexture3.offset.x -= 0.019;
+            tubeTexture4.offset.x -= 0.022;
+            tubeTexture5.offset.x -= 0.02;
+          };
+        }
+
+        // scene场景的第二组内容
+        let group2, group2Animate;
+        {
+          const earth = createEarth({ position: { z: -10, y: -1.1 } });
+          const machine1 = createMachine("./img/move.png", {
+            position: { y: -5, z: 10 },
+          });
+          const machine2 = createMachine("./img/electronics.png", {
+            position: { x: 26, y: -5 },
+          });
+          const machine3 = createMachine("./img/electronics.png", {
+            position: { x: 45, y: -5 },
+          });
+          const computer1 = await createImportModel(
+            "./model/com/computer.gltf",
+            {
+              scale: { x: 150, y: 150, z: 150 },
+              position: { x: 71, y: -6, z: 15 },
+            }
+          );
+          const computer2 = await createImportModel(
+            "./model/com/computer.gltf",
+            {
+              scale: { x: 150, y: 150, z: 150 },
+              position: { x: 71, y: -6, z: -5 },
+            }
+          );
+          const { texture: tubeTexture1, mesh: tube1 } = await createTube(
+            [0, -5, 10],
+            [15, -5, 0],
+            [56, -5, 0],
+            [71, -5, 10]
+          );
+          const { texture: tubeTexture2, mesh: tube2 } = await createTube(
+            [0, -5, -10],
+            [15, -5, 0],
+            [56, -5, 0],
+            [71, -5, -10]
+          );
+          const face = createFace(100, 56, 2, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -13, y: -6.1, z: -28 },
+          });
+          group2 = createGroup(
+            earth,
+            machine1,
+            machine2,
+            machine3,
+            tube1,
+            tube2,
+            computer1,
+            computer2,
+            face
+          );
+
+          // 第二组的运动函数
+          group2Animate = function () {
+            tubeTexture1.offset.x -= 0.022;
+            tubeTexture2.offset.x -= 0.02;
+          };
+        }
+
+        // animate
+        animate();
+        function animate(time) {
+          // 载入两个分组的动画函数
+          // 管道运动，路线循环流动效果
+          group1Animate();
+          group2Animate();
+
+          // fps监控
+          stats.update();
+
+          renderer.render(scene, camera);
+          requestAnimationFrame(animate);
+        }
+      })();
+    </script>
+  </body>
+</html>

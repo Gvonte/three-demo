@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three-Demo</title>
+
+    <!-- JQ -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- 最新版本的 Bootstrap 核心 CSS 文件 -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css"
+      integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+      crossorigin="anonymous"
+    />
+    <!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"
+      integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+      crossorigin="anonymous"
+    ></script>
+
+    <style type="text/css">
+      body {
+        margin: 0;
+        font-family: "tencent";
+      }
+
+      #canvas-frame {
+        border: none;
+        /* background-color: #eeeeee; */
+      }
+
+      .panel {
+        border: 0;
+        width: 270px;
+        text-indent: 20px;
+      }
+
+      @font-face {
+        font-family: "tencent";
+        src: url("./font/simhei.ttf");
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="canvas-frame"></div>
+
+    <!-- 精灵文字模板 -->
+    <div class="panel" id="label1">
+      <div
+        class="panel-heading"
+        style="background-color: rgba(161, 89, 41, 0.8); color: white;"
+      >
+        专线网络接入区
+      </div>
+      <div
+        class="panel-body"
+        style="background-color: rgba(72, 58, 46, 0.8); color: white;"
+      >
+        <p>区域机器总数：100</p>
+        <p>高风险漏洞机器总数：10</p>
+        <p>高风险漏洞机器占比：10%</p>
+      </div>
+    </div>
+    <div class="panel" id="label2">
+      <div
+        class="panel-heading"
+        style="background-color: rgba(161, 89, 41, 0.8); color: white;"
+      >
+        移动网络接入区
+      </div>
+      <div
+        class="panel-body"
+        style="background-color: rgba(72, 58, 46, 0.8); color: white;"
+      >
+        <p>区域机器总数：59</p>
+        <p>低风险漏洞机器总数：5</p>
+        <p>低风险漏洞机器占比：8%</p>
+      </div>
+    </div>
+
+    <!-- 着色器 -->
+    <script type="x-shader/x-vertex" id="vertexshader">
+      varying vec2 vUv;
+      void main() {
+      	vUv = uv;
+      	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+      uniform sampler2D baseTexture;
+      uniform sampler2D bloomTexture;
+      varying vec2 vUv;
+      vec4 getTexture( sampler2D texelToLinearTexture ) {
+      	return mapTexelToLinear( texture2D( texelToLinearTexture , vUv ) );
+      }
+      void main() {
+      	gl_FragColor = ( getTexture( baseTexture ) + vec4( 1.0 ) * getTexture( bloomTexture ) );
+      }
+    </script>
+
+    <script src="lib/three.min.js"></script>
+    <!-- 控制器 -->
+    <script src="lib/OrbitControls.js"></script>
+    <!-- fps -->
+    <script src="lib/stats.min.js"></script>
+    <!-- 加载模型 -->
+    <script src="lib/DRACOLoader.js"></script>
+    <script src="lib/GLTFLoader.js"></script>
+    <!-- 加载ttf -->
+    <script src="lib/opentype.min.js"></script>
+    <script src="lib/TTFLoader.js"></script>
+    <!-- 后期处理，效果合成器所需的一些js文件 -->
+    <script src="lib/EffectComposer.js"></script>
+    <script src="lib/ShaderPass.js"></script>
+    <script src="lib/RenderPass.js"></script>
+    <script src="lib/CopyShader.js"></script>
+    <script src="lib/LuminosityHighPassShader.js"></script>
+    <script src="lib/UnrealBloomPass.js"></script>
+    <script src="lib/FXAAShader.js"></script>
+    <script src="lib/ClearPass.js"></script>
+    <script src="lib/MaskPass.js"></script>
+
+    <!-- 引入自己封装好的函数 -->
+    <script src="js/common_fn.js"></script>
+    <script src="js/util_fn.js"></script>
+    <script src="js/init_fn.js"></script>
+    <script src="js/create_fn.js"></script>
+    <script src="js/composer_fn.js"></script>
+    <!-- util -->
+    <script src="lib/Tween.min.js"></script>
+    <script src="lib/html2canvas.min.js"></script>
+
+    <script>
+      // 初始化
+      const { scene, normalScene, camera, renderer } = initThree(
+        "#canvas-frame"
+      );
+      const lights = initLight();
+      const controls = initControls();
+      const stats = initStats();
+      // camera.lookAt(10, 10, 10);
+
+      // 新建一个layer，实现局部辉光
+      const bloomLayer = createLayer(1);
+      const materials = {};
+
+      // 构建场景
+      // 合并图片需要等图片加载，这里有回调地狱，所以用 async 解决
+      (async function () {
+        // 基准线
+        // scene.add(createLine([[-30, 0, 0], [30, 0, 0]]));
+        // scene.add(createLine([[0, 10, 0], [0, -10, 0]]));
+
+        // scene场景的公共内容
+        const earth = createEarth({ position: { x: -15, y: -1 } });
+        const machine = createMachine("./img/move.png", {
+          position: { x: 15, z: -20, y: -5 },
+        });
+
+        // scene场景的第一组内容
+        let group1, group1Animate;
+        {
+          const earth2 = createClone(earth, { position: { x: 15, y: -1 } });
+          const machine2 = createClone(machine, {
+            position: { x: -15 },
+          });
+          const machine3 = createClone(machine, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -15, y: -1, z: 15 },
+          });
+          const machine4 = createClone(machine, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: 15, y: -1, z: 15 },
+          });
+          const face = createFace(50, 60, 4, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -25, y: -6.1, z: -30 },
+          });
+          const { texture: tubeTexture1, mesh: tube1 } = await createTube(
+            [-15, -5, 0],
+            [15, -5, 0]
+          );
+          const { texture: tubeTexture2, mesh: tube2 } = await createTube(
+            [-15, -5, 15],
+            [15, -5, 15]
+          );
+          const { texture: tubeTexture3, mesh: tube3 } = await createTube(
+            [-15, -5, -20],
+            [15, -5, -20]
+          );
+          const { texture: tubeTexture4, mesh: tube4 } = await createTube(
+            [-15, -5, 15],
+            [-15, -5, -40],
+            [40, -5, -40],
+            [40, -5, -10],
+            [60, -5, -10]
+          );
+          const { texture: tubeTexture5, mesh: tube5 } = await createTube(
+            [15, -5, 15],
+            [15, -5, -35],
+            [30, -5, -35],
+            [30, -5, 10],
+            [60, -5, 10]
+          );
+          const text = await createText(
+            "专线网络接入区",
+            "rgb(210, 178, 124)",
+            {
+              position: { y: -3, z: 25 },
+            }
+          );
+          group1 = createGroup(
+            machine,
+            machine2,
+            earth,
+            earth2,
+            machine3,
+            machine4,
+            face,
+            tube1,
+            tube2,
+            tube3,
+            tube4,
+            tube5,
+            text
+          );
+          group1.position.x = -60;
+
+          group1Animate = function () {
+            tubeTexture1.offset.x -= 0.022;
+            tubeTexture2.offset.x -= 0.02;
+            tubeTexture3.offset.x -= 0.019;
+            tubeTexture4.offset.x -= 0.022;
+            tubeTexture5.offset.x -= 0.02;
+          };
+        }
+
+        // scene场景的第二组内容
+        let group2, group2Animate;
+        {
+          const earth1 = createClone(earth, {
+            position: { x: 0, z: -10, y: -1.1 },
+          });
+          const machine1 = createClone(machine, {
+            position: { x: 0, y: -5, z: 10 },
+          });
+          const machine2 = createMachine("./img/electronics.png", {
+            position: { x: 26, y: -5 },
+          });
+          const machine3 = createClone(machine2, {
+            position: { x: 45, y: -5 },
+          });
+          const computer1 = await createImportModel(
+            "./model/com/computer.gltf",
+            {
+              scale: { x: 150, y: 150, z: 150 },
+              position: { x: 71, y: -6, z: 15 },
+            }
+          );
+          const computer2 = createClone(computer1, {
+            position: { z: -5 },
+          });
+          const { texture: tubeTexture1, mesh: tube1 } = await createTube(
+            [0, -5, 10],
+            [15, -5, 0],
+            [56, -5, 0],
+            [71, -5, 10]
+          );
+          const { texture: tubeTexture2, mesh: tube2 } = await createTube(
+            [0, -5, -10],
+            [15, -5, 0],
+            [56, -5, 0],
+            [71, -5, -10]
+          );
+          const face = createFace(100, 56, 2, {
+            rotation: { x: Math.PI / 2 },
+            position: { x: -13, y: -6.1, z: -28 },
+          });
+          const text = await createText(
+            "移动网络接入区",
+            "rgb(216, 120, 133)",
+            {
+              position: { x: 39, y: -3, z: 22 },
+            }
+          );
+          group2 = createGroup(
+            earth1,
+            machine1,
+            machine2,
+            machine3,
+            tube1,
+            tube2,
+            computer1,
+            computer2,
+            face,
+            text
+          );
+
+          group2Animate = function () {
+            tubeTexture1.offset.x -= 0.022;
+            tubeTexture2.offset.x -= 0.02;
+          };
+        }
+
+        // scene场景的组外公共内容
+        let commonAnimate;
+        {
+          commonAnimate = function () {};
+        }
+
+        // normalScene场景的内容
+        let normalSceneAnimate;
+        {
+          const { sprite: spriteText1 } = await createSpriteText("#label1", {
+            position: { x: -65, y: 23 },
+          });
+          const { sprite: spriteText2 } = await createSpriteText("#label2", {
+            position: { x: 36, y: 23 },
+          });
+          const beam = createLightBeam(100, 56, 2, "red", {
+            scale: { z: 10 },
+            rotation: { x: Math.PI / 2 },
+            position: { x: -13, y: 3.9, z: -28 },
+          });
+          normalScene.add(spriteText1);
+          normalScene.add(spriteText2);
+          normalScene.add(beam);
+
+          const tween1 = new TWEEN.Tween(beam.material[1])
+            .to({ opacity: 0 }, 1000)
+            .onComplete(() => {
+              tween2.start();
+            });
+          const tween2 = new TWEEN.Tween(beam.material[1])
+            .to({ opacity: 1 }, 1000)
+            .onComplete(() => {
+              tween1.start();
+            });
+          tween1.start();
+          // let direction = true;
+          normalSceneAnimate = function () {
+            TWEEN.update();
+            // if (direction) {
+            //   beam.material[1].opacity -= 0.01;
+            //   if (beam.material[1].opacity <= 0.5) {
+            //     direction = false;
+            //   }
+            // } else {
+            //   beam.material[1].opacity += 0.01;
+            //   if (beam.material[1].opacity >= 1) {
+            //     direction = true;
+            //   }
+            // }
+          };
+        }
+
+        // 后期处理
+        const { bloomComposer, finalComposer } = createComposer();
+        document.body.removeChild(document.querySelector("#label1"));
+        document.body.removeChild(document.querySelector("#label2"));
+
+        // 产生局部辉光的前三步，初始状态必须先调用 bloomComposer.render()
+        scene.traverse(darkenNonBloomed);
+        bloomComposer.render();
+        scene.traverse(restoreMaterial);
+
+        controls.addEventListener("change", function () {
+          // 产生局部辉光的前三步，操作控制器的时候重新调用 bloomComposer.render() 更新辉光
+          scene.traverse(darkenNonBloomed);
+          bloomComposer.render();
+          scene.traverse(restoreMaterial);
+        });
+
+        // animate
+        animate();
+        function animate() {
+          // 管道运动，路线循环流动效果
+          group1Animate();
+          group2Animate();
+          commonAnimate();
+          normalSceneAnimate();
+
+          // fps监控
+          stats.update();
+
+          // 实现局部辉光
+          // 1. 先将除辉光物体外的物体材质转成黑色
+          // scene.traverse(darkenNonBloomed);
+          // 2. 再产生辉光，但这里不渲染到屏幕上 bloomComposer.renderToScreen = false;
+          // bloomComposer.render();
+          // 3. 然后将转成黑色材质的物体还原成初始材质
+          // scene.traverse(restoreMaterial);
+          // 4. 最后用 finalComposer 开始渲染，其中 finalComposer 使用 MaskPass 高级效果组合器渲染
+          finalComposer.render();
+          // renderer.render(scene, camera);
+
+          requestAnimationFrame(animate);
+        }
+
+        // 将场景中除了辉光物体外的物体材质转成黑色
+        function darkenNonBloomed(obj) {
+          if (
+            (obj.isMesh || obj.isSprite) &&
+            bloomLayer.test(obj.layers) === false
+          ) {
+            if (obj.isSprite) {
+              materials[obj.uuid] = obj.material;
+              obj.material = new THREE.SpriteMaterial({
+                color: "#000",
+              });
+            } else {
+              materials[obj.uuid] = obj.material;
+              obj.material = blackBasicMaterial;
+            }
+          }
+        }
+        // 将场景中材质转成黑色的物体还原
+        function restoreMaterial(obj) {
+          if (materials[obj.uuid]) {
+            obj.material = materials[obj.uuid];
+            delete materials[obj.uuid];
+          }
+        }
+
+        // 异步
+        setTimeout(() => {}, 3000);
+
+        // test
+        // ...
+      })();
+    </script>
+  </body>
+</html>
