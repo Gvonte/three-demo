@@ -2,7 +2,7 @@
 module.exports = async (gvonte) => {
     const { earth, machine } = gvonte.groupCommon;
     const earth1 = gvonte.createClone(earth, {
-        position: { x: 0, z: -10, y: -1.1 },
+        position: { x: 0, z: -10, y: -1 },
     });
     const machine1 = gvonte.createClone(machine, {
         position: { x: 0, y: -5, z: 10 },
