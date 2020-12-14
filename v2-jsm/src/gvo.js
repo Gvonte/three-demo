@@ -1,5 +1,5 @@
 // 引用文件
-const { Scene, PerspectiveCamera, WebGLRenderer, Color, AmbientLight, PointLight } = require('./lib/three.module');
+const { Scene, PerspectiveCamera, TextureLoader, WebGLRenderer, Color, AmbientLight, PointLight } = require('./lib/three.module');
 const { OrbitControls } = require('./lib/OrbitControls');
 const Stats = require('./lib/stats.module');
 
@@ -13,7 +13,8 @@ class Gvo {
   }
   customInit() {
     this.normalScene = new Scene(); // 增添一个新的场景用来做部分辉光效果
-    this.scene.background = new Color("rgb(25, 35, 39)");
+    // this.scene.background = new Color("rgb(25, 35, 39)");
+    this.scene.background = new TextureLoader().load('./assets/img/back.jpg');
     this.camera.position.set(-20, 40, 90);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.autoClear = false; // 要使用高级效果组合器MaskPass，必须设置为false
